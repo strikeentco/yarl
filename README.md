@@ -1,5 +1,6 @@
-yarl
+yarl [![License](https://img.shields.io/github/license/strikeentco/yarl.svg)](https://github.com/strikeentco/yarl/blob/master/LICENSE) [![npm](https://img.shields.io/npm/v/yarl.svg)](https://www.npmjs.com/package/yarl)
 ==========
+[![Build Status](https://travis-ci.org/strikeentco/yarl.svg)](https://travis-ci.org/strikeentco/yarl) [![node](https://img.shields.io/node/v/yarl.svg)](https://www.npmjs.com/package/yarl) [![Test Coverage](https://codeclimate.com/github/strikeentco/yarl/badges/coverage.svg)](https://codeclimate.com/github/strikeentco/yarl/coverage) [![bitHound Score](https://www.bithound.io/github/strikeentco/yarl/badges/score.svg)](https://www.bithound.io/github/strikeentco/yarl)
 > YARL, Carl!
 
 `Promise` based, easy to use, with built-in `multipart/form-data` support - yet another request library (yarl).
