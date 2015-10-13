@@ -1,0 +1,45 @@
+{
+  "name": "yarl",
+  "author": "Alexey Bystrov <strikeentco@gmail.com>",
+  "version": "1.0.0",
+  "description": "Promise based, easy to use, with built-in multipart/form-data support - yet another request library (yarl)",
+  "engines": {
+    "node": ">=0.12.0"
+  },
+  "keywords": [
+    "http",
+    "https",
+    "request",
+    "multipart",
+    "form-data",
+    "url",
+    "yarl",
+    "promise",
+    "json"
+  ],
+  "main": "./main.js",
+  "scripts": {
+    "test": "mocha test",
+    "test-on-travis": "istanbul cover --report lcovonly ./node_modules/mocha/bin/_mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/strikeentco/yarl.git"
+  },
+  "bugs": {
+    "url": "https://github.com/strikeentco/yarl/issues"
+  },
+  "dependencies": {
+    "multi-part": "^1.0.1",
+    "object-assign": "^4.0.1"
+  },
+  "devDependencies": {
+    "body-parser": "^1.14.0",
+    "express": "^4.13.3",
+    "mocha": "^2.3.3",
+    "multer": "^1.0.5",
+    "rimraf": "^2.4.3",
+    "should": "^7.1.0"
+  },
+  "license": "MIT"
+}
