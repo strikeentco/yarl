@@ -1,4 +1,4 @@
-yarl [![License](https://img.shields.io/github/license/strikeentco/yarl.svg)](https://github.com/strikeentco/yarl/blob/master/LICENSE) [![npm](https://img.shields.io/npm/v/yarl.svg)](https://www.npmjs.com/package/yarl)
+yarl [![License](https://img.shields.io/npm/l/yarl.svg)](https://github.com/strikeentco/yarl/blob/master/LICENSE) [![npm](https://img.shields.io/npm/v/yarl.svg)](https://www.npmjs.com/package/yarl)
 ==========
 [![Build Status](https://travis-ci.org/strikeentco/yarl.svg)](https://travis-ci.org/strikeentco/yarl) [![node](https://img.shields.io/node/v/yarl.svg)](https://www.npmjs.com/package/yarl) [![Test Coverage](https://codeclimate.com/github/strikeentco/yarl/badges/coverage.svg)](https://codeclimate.com/github/strikeentco/yarl/coverage) [![bitHound Score](https://www.bithound.io/github/strikeentco/yarl/badges/score.svg)](https://www.bithound.io/github/strikeentco/yarl)
 > YARL, Carl!
@@ -10,27 +10,28 @@ yarl [![License](https://img.shields.io/github/license/strikeentco/yarl.svg)](ht
 * Follows redirects
 * `multipart/form-data` built-in support
 * `json` parse
-* `download` method and many more
+* `download` method
+* etc.
 
 ## Install
 ```sh
-npm install yarl
+$ npm install yarl --save
 ```
 
 ## Usage
 ```js
-var yarl = require('yarl');
+const yarl = require('yarl');
 
 yarl
-  .get('https://api.github.com/users/strikeentco', {json: true})
-  .then(function(res) {
+  .get('https://api.github.com/users/strikeentco', { json: true })
+  .then((res) => {
     console.log(res.body.name); // => Alexey Bystrov
-    return yarl.download(res.body.avatar_url, './' + res.body.login + '.jpg');
+    return yarl.download(res.body.avatar_url, `./${res.body.login}.jpg`);
   })
-  .then(function(res) {
+  .then((res) => {
     console.log(res.body); // => The data successfully written to file.
   })
-  .catch(function(e) {
+  .catch((e) => {
     console.error('Ohh maan:', e);
   });
 ```
@@ -59,59 +60,57 @@ If `http://` will be missed in `url`, it will be automatically added.
 
 ### yarl.get(url, [options])
 
-Simmilar to `yarl(url, {method: 'GET'})`.
+Simmilar to `yarl(url, { method: 'GET' })`.
 
 ### yarl.head(url, [options])
 
-Simmilar to `yarl(url, {method: 'HEAD', includeHeaders: true})`.
+Simmilar to `yarl(url, { method: 'HEAD', includeHeaders: true })`.
 
 ### yarl.post(url, [options])
 
-Simmilar to `yarl(url, {method: 'POST'})`.
+Simmilar to `yarl(url, { method: 'POST' })`.
 
 ### yarl.put(url, [options])
 
-Simmilar to `yarl(url, {method: 'PUT'})`.
+Simmilar to `yarl(url, { method: 'PUT' })`.
 
 ### yarl.patch(url, [options])
 
-Simmilar to `yarl(url, {method: 'PATCH'})`.
+Simmilar to `yarl(url, { method: 'PATCH' })`.
 
 ### yarl.delete(url, [options])
 
-Simmilar to `yarl(url, {method: 'DELETE'})`.
+Simmilar to `yarl(url, { method: 'DELETE' })`.
 
 ### yarl.download(url, path)
 
-Simmilar to `yarl(url, {method: 'GET', download: path})`.
+Simmilar to `yarl(url, { method: 'GET', download: path })`.
 
 ## Examples
 
 ```js
-var yarl = require('yarl');
+const yarl = require('yarl');
 
-yarl('https://avatars.githubusercontent.com/u/2401029', {buffer: true})
-  .then(function(res) {
-    return yarl('127.0.0.1:3000', {body: {photo: res.body}, multipart: true});
-  })
-  .catch(function(e) {
+yarl('https://avatars.githubusercontent.com/u/2401029', { buffer: true })
+  .then(res => yarl('127.0.0.1:3000', { body: { photo: res.body }, multipart: true }))
+  .catch((e) => {
     console.error('Ohh maan:', e);
   });
 ```
 
 ```js
-var fs = require('fs');
-var https = require('https');
-var yarl = require('yarl');
+const fs = require('fs');
+const https = require('https');
+const post = require('yarl').post;
 
-var options = {
+const options = {
   body: {
     photo: {
       value: [
-        fs.createReadStream('./test/anonim.jpg'),
+        fs.createReadStream('./test/fixture/fixture.jpg'),
         https.get('https://avatars.githubusercontent.com/u/2401029')
       ],
-      options: {filename: 'photo.jpg'}
+      options: { filename: 'photo.jpg' }
     },
     field: [1, 2, '3', 4, null]
   },
@@ -119,12 +118,11 @@ var options = {
   json: true
 };
 
-yarl
-  .post('127.0.0.1:3000', options)
-  .then(function(res) {
+post('127.0.0.1:3000', options)
+  .then((res) => {
     console.log(res.body);
   })
-  .catch(function(e) {
+  .catch((e) => {
     console.error('Ohh maan:', e);
   });
 ```
@@ -132,4 +130,4 @@ yarl
 ## License
 
 The MIT License (MIT)<br/>
-Copyright (c) 2015 Alexey Bystrov
+Copyright (c) 2015-2016 Alexey Bystrov
