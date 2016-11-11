@@ -117,7 +117,7 @@ describe('yarl()', function () {
 
     it('should throw ParseError', () =>
        yarl.get(`${path}/${method}/ok`, { json: true }).catch((e) => {
-         should(e.message).be.eql('Unexpected token O');
+         should(e.message).startWith('Unexpected token O');
        })
     );
 
