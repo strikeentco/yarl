@@ -65,6 +65,12 @@ describe('yarl()', function () {
        })
     );
 
+    it('should be equal Ok', () =>
+       yarl.get(`${path}/${method}/gzip`).then((res) => {
+         should(res.body).be.eql('gzip: Ok');
+       })
+    );
+
     it('should be with header', () =>
        yarl.get(`${path}/${method}/ok`, { includeHeaders: true }).then((res) => {
          should(res.headers).be.an.Object();
@@ -118,6 +124,12 @@ describe('yarl()', function () {
     it('should throw ParseError', () =>
        yarl.get(`${path}/${method}/ok`, { json: true }).catch((e) => {
          should(e.message).startWith('Unexpected token O');
+       })
+    );
+
+    it('should throw ParseError', () =>
+       yarl.get(`${path}/${method}/wrongzip`).catch((e) => {
+         should(e.message).startWith('incorrect header check');
        })
     );
 

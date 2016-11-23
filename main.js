@@ -2,12 +2,14 @@
 
 const fs = require('fs');
 const urlParse = require('url').parse;
+const unzip = require('zlib').unzipSync;
 const http = require('http');
 const https = require('https');
 const qs = require('querystring');
 const Multipart = require('multi-part');
 const helpers = require('./lib/helpers');
 const errors = require('./lib/errors');
+const pckg = require('./package.json');
 
 /* helpers */
 const isStream = helpers.isStream;
@@ -28,7 +30,7 @@ const FileError = errors.FileError;
 const BOUNDARY_PREFIX = 'YARLMultipartBoundary';
 
 function prepareForm(data) {
-  const form = new Multipart({ chunked: data.chunked, boundaryPrefix: BOUNDARY_PREFIX });
+  const form = new Multipart({ boundaryPrefix: BOUNDARY_PREFIX });
 
   for (const key in data.body) { // eslint-disable-line guard-for-in
     const field = data.body[key];
@@ -86,7 +88,8 @@ function normalize(url, opts) {
         if (opts.multipart) {
           return prepareForm(opts, reject).then((options) => {
             options.headers = Object.assign(options.headers, {
-              'user-agent': 'https://github.com/strikeentco/yarl'
+              'user-agent': `${pckg.name}/${pckg.version} (https://github.com/strikeentco/yarl)`,
+              'accept-encoding': 'gzip,deflate'
             }, opts.headers);
 
             if (options.json && !options.headers.accept) {
@@ -110,19 +113,13 @@ function normalize(url, opts) {
         opts.headers = {};
       }
 
-      if (opts.chunked !== false) {
-        opts.headers['transfer-encoding'] = 'chunked';
-      }
-
+      opts.headers['transfer-encoding'] = 'chunked';
       opts.headers['content-type'] = 'application/x-www-form-urlencoded';
-
-      if (!opts.headers['content-length'] && !opts.headers['transfer-encoding']) {
-        opts.headers['content-length'] = Buffer.byteLength(opts.body);
-      }
     }
 
     opts.headers = Object.assign({
-      'user-agent': 'https://github.com/strikeentco/yarl'
+      'user-agent': `${pckg.name}/${pckg.version} (https://github.com/strikeentco/yarl)`,
+      'accept-encoding': 'gzip,deflate'
     }, opts.headers);
 
     if (opts.json && !opts.headers.accept) {
@@ -132,7 +129,6 @@ function normalize(url, opts) {
     if (!opts.method) {
       opts.method = 'GET';
     }
-
     return resolve(opts);
   });
 }
@@ -161,13 +157,24 @@ function request(opts, resolve, reject, redirectCount) {
     });
 
     res.on('end', () => {
+      let body;
       const result = {};
+      if (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1 && req.method !== 'HEAD') {
+        try {
+          body = unzip(Buffer.concat(chunks));
+        } catch (e) {
+          opts.body = Buffer.concat(chunks).toString(opts.encoding);
+          return reject(new ParseError(e, opts));
+        }
+      } else {
+        body = Buffer.concat(chunks);
+      }
       if (opts.includeHeaders) {
         result.headers = res.headers;
       }
 
       if (statusCode < 200 || statusCode > 299) {
-        opts.body = Buffer.concat(chunks).toString(opts.encoding);
+        opts.body = body.toString(opts.encoding);
         reject(new HTTPError(statusCode, opts));
       } else if (opts.download) {
         if (typeof opts.download === 'string') {
@@ -185,20 +192,20 @@ function request(opts, resolve, reject, redirectCount) {
           resolve(result);
         });
 
-        opts.download.end(Buffer.concat(chunks));
+        opts.download.end(body);
       } else if (opts.buffer) {
-        result.body = Buffer.concat(chunks);
+        result.body = body;
         resolve(result);
       } else if (opts.json) {
         try {
-          result.body = JSON.parse(Buffer.concat(chunks));
+          result.body = JSON.parse(body);
           resolve(result);
         } catch (e) {
-          opts.body = Buffer.concat(chunks).toString(opts.encoding);
+          opts.body = body.toString(opts.encoding);
           reject(new ParseError(e, opts));
         }
       } else {
-        result.body = Buffer.concat(chunks).toString(opts.encoding);
+        result.body = body.toString(opts.encoding);
         resolve(result);
       }
     });

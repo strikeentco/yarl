@@ -3,13 +3,14 @@ yarl [![License](https://img.shields.io/npm/l/yarl.svg)](https://github.com/stri
 [![Build Status](https://travis-ci.org/strikeentco/yarl.svg)](https://travis-ci.org/strikeentco/yarl) [![node](https://img.shields.io/node/v/yarl.svg)](https://www.npmjs.com/package/yarl) [![Test Coverage](https://codeclimate.com/github/strikeentco/yarl/badges/coverage.svg)](https://codeclimate.com/github/strikeentco/yarl/coverage) [![bitHound Score](https://www.bithound.io/github/strikeentco/yarl/badges/score.svg)](https://www.bithound.io/github/strikeentco/yarl)
 > YARL, Carl!
 
-`Promise` based, easy to use, with built-in `multipart/form-data` support - yet another request library (yarl).
+`Promise` based, easy to use, with built-in `multipart/form-data` and `gzip/deflate` handling support - yet another request library (yarl).
 
 ## Features
-* `Promise` based
+* `Promise` based (i.e. `async/await` ready)
 * Follows redirects
 * `multipart/form-data` built-in support
 * `json` parse
+* `gzip/deflate` handling
 * `download` method
 * etc.
 
@@ -25,15 +26,26 @@ const yarl = require('yarl');
 yarl
   .get('https://api.github.com/users/strikeentco', { json: true })
   .then((res) => {
-    console.log(res.body.name); // => Alexey Bystrov
+    res.body.name; // -> Alexey Bystrov
     return yarl.download(res.body.avatar_url, `./${res.body.login}.jpg`);
   })
   .then((res) => {
-    console.log(res.body); // => The data successfully written to file.
-  })
-  .catch((e) => {
-    console.error('Ohh maan:', e);
+    res.body; // -> The data successfully written to file.
   });
+```
+
+```js
+const yarl = require('yarl');
+const fs = require('fs');
+const https = require('https');
+
+yarl.post('127.0.0.1:3000', {
+  body: {
+    photo: https.get('https://avatars.githubusercontent.com/u/2401029'),
+    fixture: fs.createReadStream('./test/fixture/fixture.jpg')
+  },
+  multipart: true
+});
 ```
 
 # API
@@ -53,7 +65,6 @@ If `http://` will be missed in `url`, it will be automatically added.
   * **forceRedirect** (*Boolean*) - If `true`, will follow redirects for all methods, otherwise for `GET` and `HEAD` only.
   * **redirectCount** (*Number*) - Number of allowed redirects. By default 10.
   * **includeHeaders** (*Boolean*) - If `true`, `headers` property will be added to response object, otherwise only `body` will.
-  * **chunked** (*Boolean*) - If `false`, `content-length` will be added, otherwise `transfer-encoding` will be added as `chunked`.
   * **json** (*Boolean*) - Parse response body with `JSON.parse` and set accept header to `application/json`.
   * **buffer** (*Boolean*) - If `true`, the body is returned as a `Buffer`.
   * **download** (*String|WritableStream*) - Response body will be written to specified `WritableStream` or new `WritableStream` will be created with specified path.
@@ -86,16 +97,102 @@ Simmilar to `yarl(url, { method: 'DELETE' })`.
 
 Simmilar to `yarl(url, { method: 'GET', download: path })`.
 
-## Examples
+## XML
+
+You can use the [`xml-parser`](https://github.com/segmentio/xml-parser) module to parse XML data:
+
+```js
+const yarl = require('yarl');
+const parse = require('xml-parser');
+
+function xmlParse(xml) {
+  return Object.assign({}, xml, {
+    body: parse(xml.body)
+  });
+}
+
+yarl('http://api.openweathermap.org/data/2.5/weather?q=London&mode=xml').then(xmlParse).then((r) => {
+  r.body.root.children[1].attributes.value; // -> temperature
+});
+
+// or
+
+yarl('http://api.openweathermap.org/data/2.5/weather?q=London&mode=xml').then((r) => {
+  parse(r.body).root.children[1].attributes.value; // -> temperature
+});
+
+```
+
+## Proxies
+
+You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with the `agent` option to work with proxies:
+
+```js
+const yarl = require('yarl');
+const tunnel = require('tunnel');
+
+yarl('github.com', {
+  agent: tunnel.httpOverHttp({
+    proxy: {
+      host: 'localhost'
+    }
+  })
+});
+```
+
+## Cookies
+
+You can use the [`cookie`](https://github.com/jshttp/cookie) module to include cookies in a request:
+
+```js
+const yarl = require('yarl');
+const cookie = require('cookie');
+
+yarl('github.com', {
+  headers: {
+    cookie: cookie.serialize('foo', 'bar')
+  }
+});
+```
+
+## OAuth
+
+You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) module to create a signed OAuth request:
+
+```js
+const yarl = require('yarl');
+const crypto  = require('crypto');
+const OAuth = require('oauth-1.0a');
+
+const oauth = OAuth({
+  consumer: {
+    key: process.env.CONSUMER_KEY,
+    secret: process.env.CONSUMER_SECRET
+  },
+  signature_method: 'HMAC-SHA1',
+  hash_function: (baseString, key) => crypto.createHmac('sha1', key).update(baseString).digest('base64')
+});
+
+const token = {
+  key: process.env.ACCESS_TOKEN,
+  secret: process.env.ACCESS_TOKEN_SECRET
+};
+
+const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
+
+yarl(url, {
+  headers: oauth.toHeader(oauth.authorize({ url, method: 'GET' }, token)),
+  json: true
+});
+```
+
+## Other examples
 
 ```js
 const yarl = require('yarl');
 
 yarl('https://avatars.githubusercontent.com/u/2401029', { buffer: true })
-  .then(res => yarl('127.0.0.1:3000', { body: { photo: res.body }, multipart: true }))
-  .catch((e) => {
-    console.error('Ohh maan:', e);
-  });
+  .then(res => yarl('127.0.0.1:3000', { body: { photo: res.body }, multipart: true }));
 ```
 
 ```js
@@ -118,13 +215,7 @@ const options = {
   json: true
 };
 
-post('127.0.0.1:3000', options)
-  .then((res) => {
-    console.log(res.body);
-  })
-  .catch((e) => {
-    console.error('Ohh maan:', e);
-  });
+post('127.0.0.1:3000', options);
 ```
 
 ## License

@@ -1,5 +1,6 @@
 'use strict';
 
+const zlib = require('zlib');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
@@ -38,6 +39,18 @@ app.get('/get/infinity', (req, res) => {
 
 app.get('/get/empty', (req, res) => {
   res.end();
+});
+
+app.get('/get/gzip', (req, res) => {
+  res.setHeader('Content-Encoding', 'gzip');
+  zlib.gzip('gzip: Ok', (_, data) => {
+    res.end(data);
+  });
+});
+
+app.get('/get/wrongzip', (req, res) => {
+  res.setHeader('Content-Encoding', 'gzip');
+  res.end('gzip: Ok');
 });
 
 /* POST */
