@@ -48,6 +48,12 @@ app.get('/get/gzip', (req, res) => {
   });
 });
 
+app.get('/get/gzip/noheaders', (req, res) => {
+  zlib.gzip('gzip: Ok', (_, data) => {
+    res.end(data);
+  });
+});
+
 app.get('/get/wrongzip', (req, res) => {
   res.setHeader('Content-Encoding', 'gzip');
   res.end('gzip: Ok');

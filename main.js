@@ -159,11 +159,12 @@ function request(opts, resolve, reject, redirectCount) {
     res.on('end', () => {
       let body;
       const result = {};
-      if (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1 && req.method !== 'HEAD') {
+      if (opts.gzip || opts.deflate || (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1 && req.method !== 'HEAD')) {
         try {
           body = unzip(Buffer.concat(chunks));
         } catch (e) {
           opts.body = Buffer.concat(chunks).toString(opts.encoding);
+          opts.in = 'unzip';
           return reject(new ParseError(e, opts));
         }
       } else {
@@ -202,6 +203,7 @@ function request(opts, resolve, reject, redirectCount) {
           resolve(result);
         } catch (e) {
           opts.body = body.toString(opts.encoding);
+          opts.in = 'JSON.parse';
           reject(new ParseError(e, opts));
         }
       } else {
@@ -231,6 +233,7 @@ function request(opts, resolve, reject, redirectCount) {
   });
 }
 
+// eslint-disable-next-line
 const yarl = module.exports = (url, opts) => normalize(url, opts).then(options =>
   new Promise((resolve, reject) => {
     request(options, resolve, reject, 0);

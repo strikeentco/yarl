@@ -71,6 +71,18 @@ describe('yarl()', function () {
        })
     );
 
+    it('should be equal Ok', () =>
+       yarl.get(`${path}/${method}/gzip/noheaders`, { gzip: true }).then((res) => {
+         should(res.body).be.eql('gzip: Ok');
+       })
+    );
+
+    it('should be equal Ok', () =>
+       yarl.get(`${path}/${method}/gzip/noheaders`, { deflate: true }).then((res) => {
+         should(res.body).be.eql('gzip: Ok');
+       })
+    );
+
     it('should be with header', () =>
        yarl.get(`${path}/${method}/ok`, { includeHeaders: true }).then((res) => {
          should(res.headers).be.an.Object();
@@ -129,6 +141,18 @@ describe('yarl()', function () {
 
     it('should throw ParseError', () =>
        yarl.get(`${path}/${method}/wrongzip`).catch((e) => {
+         should(e.message).startWith('incorrect header check');
+       })
+    );
+
+    it('should throw ParseError', () =>
+       yarl.get(`${path}/${method}/ok`, { gzip: true }).catch((e) => {
+         should(e.message).startWith('incorrect header check');
+       })
+    );
+
+    it('should throw ParseError', () =>
+       yarl.get(`${path}/${method}/ok`, { deflate: true }).catch((e) => {
          should(e.message).startWith('incorrect header check');
        })
     );
@@ -197,13 +221,17 @@ describe('yarl()', function () {
                contentType: 'image/jpeg'
              }
            }
-         }, multipart: true, chunked: false
+         },
+         multipart: true,
+         chunked: false
        }).then((res) => {
          should(res.body).be.eql('{"filename":"anonim.jpg","mime":"image/jpeg"}');
          return yarl.post(`${path}/${method}/file`, { body: {
            num: 12345,
            photo: fs.createReadStream(file)
-         }, json: true, multipart: true });
+         },
+           json: true,
+           multipart: true });
        }).then((res) => {
          should(res.body).be.eql({ filename: 'fixture.jpg', mime: 'image/jpeg', field: '12345' });
        })
@@ -258,7 +286,8 @@ describe('yarl()', function () {
        yarl.post(`${path}/${method}/file`, {
          body: {
            photo: require('http').request({ hostname: '127.0.0.1' })
-         }, multipart: true }).catch((e) => {
+         },
+         multipart: true }).catch((e) => {
            should(e.message).startWith('connect ECONNREFUSED');
          })
     );

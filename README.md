@@ -68,6 +68,8 @@ If `http://` will be missed in `url`, it will be automatically added.
   * **json** (*Boolean*) - Parse response body with `JSON.parse` and set accept header to `application/json`.
   * **buffer** (*Boolean*) - If `true`, the body is returned as a `Buffer`.
   * **download** (*String|WritableStream*) - Response body will be written to specified `WritableStream` or new `WritableStream` will be created with specified path.
+  * **gzip** (*Boolean*) - Unzip response body with `gzip`. Useful when server doesn't specify `Content-Encoding` header.
+  * **deflate** (*Boolean*) - Unzip response body with `deflate`. Useful when server doesn't specify `Content-Encoding` header.
 
 ### yarl.get(url, [options])
 
@@ -221,4 +223,4 @@ post('127.0.0.1:3000', options);
 ## License
 
 The MIT License (MIT)<br/>
-Copyright (c) 2015-2016 Alexey Bystrov
+Copyright (c) 2015-2017 Alexey Bystrov
