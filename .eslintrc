@@ -2,7 +2,8 @@
   "extends": "airbnb",
   "env": {
     "node": true,
-    "mocha": true
+    "mocha": true,
+    "es6": true
   },
   "parserOptions": {
     "sourceType": "script"
@@ -18,6 +19,6 @@
     "no-shadow": [2, { "allow": ["err", "n"] }],
     "no-underscore-dangle": 0,
     "prefer-rest-params": 0,
-    "strict": 0
+    "strict": [2, "global"]
   }
 }

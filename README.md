@@ -21,13 +21,12 @@ $ npm install yarl --save
 
 ## Usage
 ```js
-const yarl = require('yarl');
+const { get, download } = require('yarl');
 
-yarl
-  .get('https://api.github.com/users/strikeentco', { json: true })
-  .then((res) => {
-    res.body.name; // -> Alexey Bystrov
-    return yarl.download(res.body.avatar_url, `./${res.body.login}.jpg`);
+get('https://api.github.com/users/strikeentco', { json: true })
+  .then(({body}) => {
+    body.name; // -> Alexey Bystrov
+    return download(body.avatar_url, `./${body.login}.jpg`);
   })
   .then((res) => {
     res.body; // -> The data successfully written to file.
@@ -35,14 +34,14 @@ yarl
 ```
 
 ```js
-const yarl = require('yarl');
-const fs = require('fs');
-const https = require('https');
+const { post } = require('yarl');
+const { createReadStream } = require('fs');
+const { get } = require('https');
 
-yarl.post('127.0.0.1:3000', {
+post('127.0.0.1:3000', {
   body: {
-    photo: https.get('https://avatars.githubusercontent.com/u/2401029'),
-    fixture: fs.createReadStream('./test/fixture/fixture.jpg')
+    photo: get('https://avatars.githubusercontent.com/u/2401029'),
+    fixture: createReadStream('./test/fixture/fixture.jpg')
   },
   multipart: true
 });
@@ -60,12 +59,13 @@ If `http://` will be missed in `url`, it will be automatically added.
 * **url** (*String|Object*) - The URL to request or a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
 * **[options]** (*Object*) - Any of the [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback) options and:
   * **query**  (*String|Object*) - Correct `urlencoded` string or query `Object`. `Object` will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options). This will override the query string in `url`.
-  * **body**  (*String|Object*) - Correct `x-www-form-urlencoded` string or `Object`. `Object` will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
-  * **multipart** (*Boolean*) - If `true`, body object will be sent as `multipart/form-data`, otherwise as `application/x-www-form-urlencoded`.
+  * **body**  (*String|Object|Array|Buffer*) - Body that will be sent with a `POST`, `PUT`, `PATCH`, `DELETE` request. If `content-length` or `transfer-encoding` is not set in options.headers, `transfer-encoding` will be set as `chunked`.
+  * **multipart** (*Boolean*) - If `true`, body object will be sent as `multipart/form-data`.
+  * **form** (*Boolean*) - If `true`, body object will be sent as `application/x-www-form-urlencoded`.
+  * **json** (*Boolean*) -  If `true`, body object will be sent as `application/json`. Parse response body with `JSON.parse` and set accept header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
   * **forceRedirect** (*Boolean*) - If `true`, will follow redirects for all methods, otherwise for `GET` and `HEAD` only.
   * **redirectCount** (*Number*) - Number of allowed redirects. By default 10.
   * **includeHeaders** (*Boolean*) - If `true`, `headers` property will be added to response object, otherwise only `body` will.
-  * **json** (*Boolean*) - Parse response body with `JSON.parse` and set accept header to `application/json`.
   * **buffer** (*Boolean*) - If `true`, the body is returned as a `Buffer`.
   * **download** (*String|WritableStream*) - Response body will be written to specified `WritableStream` or new `WritableStream` will be created with specified path.
   * **gzip** (*Boolean*) - Unzip response body with `gzip`. Useful when server doesn't specify `Content-Encoding` header.
@@ -193,21 +193,23 @@ yarl(url, {
 ```js
 const yarl = require('yarl');
 
-yarl('https://avatars.githubusercontent.com/u/2401029', { buffer: true })
-  .then(res => yarl('127.0.0.1:3000', { body: { photo: res.body }, multipart: true }));
+(async () => {
+  const { body: photo } = await yarl('https://avatars.githubusercontent.com/u/2401029', { buffer: true });
+  await yarl('127.0.0.1:3000', { body: { photo }, multipart: true })
+})()
 ```
 
 ```js
-const fs = require('fs');
-const https = require('https');
-const post = require('yarl').post;
+const { createReadStream } = require('fs');
+const { get } = require('https');
+const { post } = require('yarl');
 
 const options = {
   body: {
     photo: {
       value: [
-        fs.createReadStream('./test/fixture/fixture.jpg'),
-        https.get('https://avatars.githubusercontent.com/u/2401029')
+        createReadStream('./test/fixture/fixture.jpg'),
+        get('https://avatars.githubusercontent.com/u/2401029')
       ],
       options: { filename: 'photo.jpg' }
     },

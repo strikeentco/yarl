@@ -1,144 +1,136 @@
 'use strict';
 
 const fs = require('fs');
-const urlParse = require('url').parse;
-const unzip = require('zlib').unzipSync;
 const http = require('http');
 const https = require('https');
 const qs = require('querystring');
+const { parse: urlParse } = require('url');
+const { unzip } = require('zlib');
+
 const Multipart = require('multi-part');
-const helpers = require('./lib/helpers');
-const errors = require('./lib/errors');
 const pckg = require('./package.json');
 
 /* helpers */
-const isStream = helpers.isStream;
-const isWriteStream = helpers.isWriteStream;
-const isObject = helpers.isObject;
-const isString = helpers.isString;
-const isRedirect = helpers.isRedirect;
-const prependHTTP = helpers.prependHTTP;
+const {
+  isStream, isWriteStream, isObject,
+  isString, isRedirect, isRedirectAll,
+  prependHTTP
+} = require('./lib/helpers');
 
 /* errors */
-const HTTPError = errors.HTTPError;
-const ParseError = errors.ParseError;
-const MaxRedirectsError = errors.MaxRedirectsError;
-const RequestError = errors.RequestError;
-const RedirectError = errors.RedirectError;
-const FileError = errors.FileError;
+const {
+  HTTPError, ParseError, MaxRedirectsError,
+  RequestError, RedirectError, FileError
+} = require('./lib/errors');
 
 const BOUNDARY_PREFIX = 'YARLMultipartBoundary';
 
-function prepareForm(data) {
+function catcher(fn, resolve, reject) {
+  return (...args) => fn(...args).then(resolve).catch(reject);
+}
+
+function unzipAsync(buffer) {
+  return new Promise((resolve, reject) =>
+    unzip(buffer, (err, data) => ((err) ? reject(err) : resolve(data))));
+}
+
+async function prepareForm(data) {
   const form = new Multipart({ boundaryPrefix: BOUNDARY_PREFIX });
 
-  for (const key in data.body) { // eslint-disable-line guard-for-in
+  // eslint-disable-next-line array-callback-return
+  Object.keys(data.body).map((key) => {
     const field = data.body[key];
     if (field.value && field.options) {
       form.append(key, field.value, field.options);
     } else {
       form.append(key, field);
     }
-  }
+  });
 
-  return Promise.resolve(form.streamWithOptions(data));
+  return form.streamWithOptions(data);
 }
 
-function normalize(url, opts) {
-  return new Promise((resolve, reject) => {
-    opts = Object.assign(
-      { protocol: 'http:', path: '', encoding: 'utf8', redirectCount: 10 },
-      typeof url === 'string' ? urlParse(prependHTTP(url), true) : url,
-      opts
-    );
+async function normalize(url, opts) {
+  opts = Object.assign(
+    { protocol: 'http:', path: '', encoding: 'utf8', redirectCount: 10 },
+    typeof url === 'string' ? urlParse(prependHTTP(url), true) : url,
+    opts
+  );
 
-    if (opts.query) {
-      if (isObject(opts.query)) {
-        opts.query = qs.stringify(opts.query);
-      }
-
-      if (isString(opts.query)) {
-        if (opts.query.length) {
-          const temp = qs.stringify(qs.parse(opts.query));
-          if (temp === opts.query) {
-            opts.query = temp;
-          } else {
-            return reject(new Error('String must be correct urlencoded string'));
-          }
-
-          opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
-        }
-
-        delete opts.query;
-      } else {
-        return reject(new TypeError('options.query must be a String or Object'));
-      }
+  if (opts.query) {
+    if (isObject(opts.query)) {
+      opts.query = qs.stringify(opts.query);
     }
 
-    if (opts.body) {
-      if (!isString(opts.body) && !isObject(opts.body)) {
-        return reject(new TypeError('options.body must be a String or Object'));
-      }
-
-      if (!opts.method) {
-        opts.method = 'POST';
-      }
-
-      if (isObject(opts.body)) {
-        if (opts.multipart) {
-          return prepareForm(opts, reject).then((options) => {
-            options.headers = Object.assign(options.headers, {
-              'user-agent': `${pckg.name}/${pckg.version} (https://github.com/strikeentco/yarl)`,
-              'accept-encoding': 'gzip,deflate'
-            }, opts.headers);
-
-            if (options.json && !options.headers.accept) {
-              options.headers.accept = 'application/json';
-            }
-
-            resolve(options);
-          }).catch(reject);
+    if (isString(opts.query)) {
+      if (opts.query.length) {
+        const temp = qs.stringify(qs.parse(opts.query));
+        if (temp === opts.query) {
+          opts.query = temp;
+        } else {
+          throw new Error('String must be correct urlencoded string');
         }
+
+        opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
+      }
+
+      delete opts.query;
+    } else {
+      throw new TypeError('options.query must be a String or Object');
+    }
+  }
+
+  if (opts.body) {
+    if (
+      !isString(opts.body) && !Buffer.isBuffer(opts.body) && !(opts.form || opts.json)
+      && !(isObject(opts.body) && opts.multipart)
+    ) {
+      throw new TypeError('options.body must be a String, Buffer or plain Object');
+    }
+
+    if ((opts.form || opts.json) && !(isObject(opts.body) || Array.isArray(opts.body))) {
+      throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
+    }
+
+    opts.method = opts.method || 'POST';
+    if (opts.multipart && isObject(opts.body)) {
+      opts = await prepareForm(opts);
+    } else if (opts.form || opts.json) {
+      opts.headers = opts.headers || {};
+      if (opts.form) {
+        opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
         opts.body = qs.stringify(opts.body);
       } else {
-        const temp = qs.stringify(qs.parse(opts.body));
-        if (temp === opts.body) {
-          opts.body = temp;
-        } else {
-          return reject(new Error('String must be correct x-www-form-urlencoded string'));
-        }
+        opts.headers['content-type'] = opts.headers['content-type'] || 'application/json';
+        opts.body = JSON.stringify(opts.body);
       }
-
-      if (!opts.headers) {
-        opts.headers = {};
-      }
-
+    }
+    opts.headers = opts.headers || {};
+    if (opts.headers['transfer-encoding'] == null && opts.headers['content-length'] == null) {
       opts.headers['transfer-encoding'] = 'chunked';
-      opts.headers['content-type'] = 'application/x-www-form-urlencoded';
     }
+  } else {
+    opts.method = opts.method || 'GET';
+  }
 
-    opts.headers = Object.assign({
-      'user-agent': `${pckg.name}/${pckg.version} (https://github.com/strikeentco/yarl)`,
-      'accept-encoding': 'gzip,deflate'
-    }, opts.headers);
+  opts.headers = Object.assign({
+    'user-agent': `${pckg.name}/${pckg.version} (https://github.com/strikeentco/yarl)`,
+    'accept-encoding': 'gzip,deflate'
+  }, opts.headers);
 
-    if (opts.json && !opts.headers.accept) {
-      opts.headers.accept = 'application/json';
-    }
+  if (opts.json && !opts.headers.accept) {
+    opts.headers.accept = 'application/json';
+  }
 
-    if (!opts.method) {
-      opts.method = 'GET';
-    }
-    return resolve(opts);
-  });
+  return opts;
 }
 
 function request(opts, resolve, reject, redirectCount) {
   const fn = (opts.protocol === 'https:') ? https : http;
   const req = fn.request(opts, (res) => {
-    const statusCode = res.statusCode;
+    const { statusCode } = res;
     if (isRedirect(statusCode) && 'location' in res.headers) {
-      if (opts.forceRedirect || opts.method === 'GET' || opts.method === 'HEAD') {
+      if (opts.forceRedirect || isRedirectAll(statusCode) || (opts.method === 'GET' || opts.method === 'HEAD')) {
         if (++redirectCount > opts.redirectCount) {
           opts.location = res.headers.location;
           return reject(new MaxRedirectsError(statusCode, opts));
@@ -152,20 +144,18 @@ function request(opts, resolve, reject, redirectCount) {
 
     const chunks = [];
 
-    res.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
+    res.on('data', chunk => chunks.push(chunk));
 
-    res.on('end', () => {
+    res.on('end', catcher(async () => {
       let body;
       const result = {};
       if (opts.gzip || opts.deflate || (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1 && req.method !== 'HEAD')) {
         try {
-          body = unzip(Buffer.concat(chunks));
+          body = await unzipAsync(Buffer.concat(chunks));
         } catch (e) {
           opts.body = Buffer.concat(chunks).toString(opts.encoding);
           opts.in = 'unzip';
-          return reject(new ParseError(e, opts));
+          throw new ParseError(e, opts);
         }
       } else {
         body = Buffer.concat(chunks);
@@ -176,41 +166,42 @@ function request(opts, resolve, reject, redirectCount) {
 
       if (statusCode < 200 || statusCode > 299) {
         opts.body = body.toString(opts.encoding);
-        reject(new HTTPError(statusCode, opts));
+        throw new HTTPError(statusCode, opts);
       } else if (opts.download) {
         if (typeof opts.download === 'string') {
           opts.download = fs.createWriteStream(opts.download);
         } else if (!isWriteStream(opts.download)) {
-          return reject(new TypeError('The options.download must be path or write stream'));
+          throw new TypeError('The options.download must be path or write stream');
         }
 
-        opts.download.on('error', (e) => {
-          reject(new FileError(e, opts));
-        });
+        // eslint-disable-next-line no-shadow
+        return new Promise((resolve, reject) => {
+          opts.download.on('error', e => reject(new FileError(e, opts)));
 
-        opts.download.on('finish', () => {
-          result.body = 'The data successfully written to file.';
-          resolve(result);
-        });
+          opts.download.on('finish', () => {
+            result.body = 'The data successfully written to file.';
+            resolve(result);
+          });
 
-        opts.download.end(body);
+          opts.download.end(body);
+        });
       } else if (opts.buffer) {
         result.body = body;
-        resolve(result);
+        return result;
       } else if (opts.json) {
         try {
           result.body = JSON.parse(body);
-          resolve(result);
+          return result;
         } catch (e) {
           opts.body = body.toString(opts.encoding);
           opts.in = 'JSON.parse';
-          reject(new ParseError(e, opts));
+          throw new ParseError(e, opts);
         }
       } else {
         result.body = body.toString(opts.encoding);
-        resolve(result);
+        return result;
       }
-    });
+    }, resolve, reject));
   });
 
   if (opts.body) {
@@ -234,10 +225,7 @@ function request(opts, resolve, reject, redirectCount) {
 }
 
 // eslint-disable-next-line
-const yarl = module.exports = (url, opts) => normalize(url, opts).then(options =>
-  new Promise((resolve, reject) => {
-    request(options, resolve, reject, 0);
-  }));
+const yarl = module.exports = (url, opts) => normalize(url, opts).then(options => new Promise((resolve, reject) => request(options, resolve, reject, 0)));
 
 module.exports.get = (url, opts) => yarl(url, Object.assign({}, opts, { method: 'GET' }));
 

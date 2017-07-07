@@ -8,7 +8,7 @@ const multer = require('multer');
 const upload = multer({ dest: `${__dirname}/uploads/` });
 const protocol = 'http://';
 const port = 3001;
-const path = `${'127.0.0.1:'}${port}`;
+const path = `127.0.0.1:${port}`;
 const app = express();
 
 app.use(bodyParser.json());
@@ -61,6 +61,10 @@ app.get('/get/wrongzip', (req, res) => {
 
 /* POST */
 app.post('/post/form', upload.array(), (req, res) => {
+  res.json(req.body);
+});
+
+app.post('/post/json', (req, res) => {
   res.json(req.body);
 });
 
